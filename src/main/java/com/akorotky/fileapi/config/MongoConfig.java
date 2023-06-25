@@ -1,7 +1,7 @@
 package com.akorotky.fileapi.config;
 
 import com.akorotky.fileapi.constants.DocumentMimeType;
-import com.akorotky.fileapi.constants.EnumConverter;
+import com.akorotky.fileapi.constants.EnumToStringConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -38,7 +38,8 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     @Bean
     public MongoCustomConversions mongoCustomConversions() {
         List<Converter<?, ?>> converters = new ArrayList<>();
-        converters.add(new EnumConverter<DocumentMimeType>());
+        converters.add(new EnumToStringConverter<DocumentMimeType>());
+        converters.add(new DocumentMimeType.StringToEnumConverter());
         return new MongoCustomConversions(converters);
     }
 
