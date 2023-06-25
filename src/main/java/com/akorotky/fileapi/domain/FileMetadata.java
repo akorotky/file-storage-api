@@ -16,6 +16,8 @@ public class FileMetadata {
     @Id
     private String id;
 
+    private String fileId;
+
     private String filename;
 
     private long fileSize;
