@@ -7,11 +7,15 @@ import com.akorotky.fileapi.dtos.FileMetadataRequestDto;
 import com.akorotky.fileapi.dtos.FileMetadataResponseDto;
 import com.akorotky.fileapi.services.DocumentService;
 import com.akorotky.fileapi.services.FileMetadataService;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +26,7 @@ import java.util.List;
 @RestController
 @RequestMapping("documents")
 @RequiredArgsConstructor
+@Validated
 public class DocumentController {
 
     private final DocumentService documentService;
@@ -37,11 +42,12 @@ public class DocumentController {
     }
 
     @GetMapping(value = "{documentId}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    public ResponseEntity<InputStreamResource> downloadDocument(@PathVariable String documentId) throws IOException {
+    public ResponseEntity<Resource> downloadDocument(@PathVariable String documentId) throws IOException {
         File file = documentService.downloadDocument(documentId);
+        InputStreamResource fileInputStream = new InputStreamResource(file.getStream());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"")
-                .body(new InputStreamResource(file.getStream()));
+                .body(fileInputStream);
     }
 
     @GetMapping(value = "{documentId}/metadata", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -57,8 +63,13 @@ public class DocumentController {
     }
 
     @GetMapping(params = "id.in", produces = "application/zip")
-    public ResponseEntity<Void> downloadDocumentsAsZipFile(@RequestParam("id.in") List<String> documentIds) {
-        return ResponseEntity.noContent().build();
+    public void downloadDocumentsAsZipFile(
+            @RequestParam(name = "id.in") @Size(min = 1, max = 80) List<String> documentIds,
+            HttpServletResponse response
+    ) throws IOException {
+        // must set the headers before writing to the response's output stream
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=files.zip");
+        documentService.downloadFilesAsZip(documentIds, response);
     }
 
     @DeleteMapping(value = "{documentId}")

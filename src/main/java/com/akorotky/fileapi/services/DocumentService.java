@@ -4,19 +4,27 @@ import com.akorotky.fileapi.constants.Constants;
 import com.akorotky.fileapi.domain.File;
 import com.akorotky.fileapi.dtos.FileMetadataRequestDto;
 import com.akorotky.fileapi.exceptions.ResourceNotFoundException;
+import com.mongodb.client.gridfs.GridFSFindIterable;
 import com.mongodb.client.gridfs.model.GridFSFile;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsOperations;
+import org.springframework.data.mongodb.gridfs.GridFsResource;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @Slf4j
@@ -25,6 +33,7 @@ public class DocumentService {
 
     private final GridFsOperations gridFsOperations;
     private final FileMetadataService fileMetadataService;
+    private final GridFsTemplate gridFsTemplate;
 
     public String uploadDocument(MultipartFile file, FileMetadataRequestDto fileMetadataRequestDto) throws IOException, HttpMediaTypeNotSupportedException {
         String filename = verifyFileValidity(file);
@@ -61,5 +70,19 @@ public class DocumentService {
         if (!Constants.allowedDocumentMimeTypes.contains(fileType))
             throw new HttpMediaTypeNotSupportedException("Unsupported file type: " + fileType);
         return filename;
+    }
+
+    public void downloadFilesAsZip(List<String> fileIds, HttpServletResponse response) throws IOException {
+        ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream());
+        GridFSFindIterable filesIterable = gridFsOperations.find(new Query(Criteria.where("_id").in(fileIds)));
+        for (GridFSFile file : filesIterable) {
+            GridFsResource resource = gridFsTemplate.getResource(file);
+            ZipEntry zipEntry = new ZipEntry(file.getFilename());
+            zipOut.putNextEntry(zipEntry);
+            StreamUtils.copy(resource.getInputStream(), zipOut);
+            zipOut.closeEntry();
+
+        }
+        zipOut.close();
     }
 }
